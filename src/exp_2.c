@@ -1,7 +1,7 @@
 /* mpfr_exp_2 -- exponential of a floating-point number
                  using algorithms in O(n^(1/2)*M(n)) and O(n^(1/3)*M(n))
 
-Copyright 1999-2017 Free Software Foundation, Inc.
+Copyright 1999-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -21,7 +21,6 @@ along with the GNU MPFR Library; see the file COPYING.LESSER.  If not, see
 http://www.gnu.org/licenses/ or write to the Free Software Foundation, Inc.,
 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA. */
 
-/* #define DEBUG */
 #define MPFR_NEED_LONGLONG_H /* for count_leading_zeros */
 #include "mpfr-impl.h"
 
@@ -199,14 +198,15 @@ mpfr_exp_2 (mpfr_ptr y, mpfr_srcptr x, mpfr_rnd_t rnd_mode)
 
       mpfr_sub (r, x, r, MPFR_RNDU);
 
+      while (MPFR_IS_PURE_FP(r) && MPFR_IS_NEG (r))
+        { /* initial approximation n was too large */
+          n--;
+          mpfr_add (r, r, s, MPFR_RNDU);
+        }
+
+      /* if r is 0, we cannot round correctly */
       if (MPFR_LIKELY(MPFR_IS_PURE_FP (r)))
         {
-          while (MPFR_IS_NEG (r))
-            { /* initial approximation n was too large */
-              n--;
-              mpfr_add (r, r, s, MPFR_RNDU);
-            }
-
           /* since there was a cancellation in x - n*log(2), the low error_r
              bits from r are zero and thus non significant, thus we can reduce
              the working precision */

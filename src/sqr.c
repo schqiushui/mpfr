@@ -1,6 +1,6 @@
 /* mpfr_sqr -- Floating-point square
 
-Copyright 2004-2017 Free Software Foundation, Inc.
+Copyright 2004-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -24,6 +24,7 @@ http://www.gnu.org/licenses/ or write to the Free Software Foundation, Inc.,
 #include "mpfr-impl.h"
 
 #if !defined(MPFR_GENERIC_ABI) && (GMP_NUMB_BITS == 32 || GMP_NUMB_BITS == 64)
+
 /* Special code for prec(a) < GMP_NUMB_BITS and prec(b) <= GMP_NUMB_BITS.
    Note: this function was copied from mpfr_mul_1 in file mul.c, thus any change
    here should be done also in mpfr_mul_1. */
@@ -49,7 +50,7 @@ mpfr_sqr_1 (mpfr_ptr a, mpfr_srcptr b, mpfr_rnd_t rnd_mode, mpfr_prec_t p)
     {
       ax --;
       a0 = (a0 << 1) | (sb >> (GMP_NUMB_BITS - 1));
-      sb = sb << 1;
+      sb <<= 1;
     }
   rb = a0 & (MPFR_LIMB_ONE << (sh - 1));
   sb |= (a0 & mask) ^ rb;
@@ -91,10 +92,10 @@ mpfr_sqr_1 (mpfr_ptr a, mpfr_srcptr b, mpfr_rnd_t rnd_mode, mpfr_prec_t p)
  rounding:
   MPFR_EXP (a) = ax; /* Don't use MPFR_SET_EXP since ax might be < __gmpfr_emin
                         in the cases "goto rounding" above. */
-  if (rb == 0 && sb == 0)
+  if ((rb == 0 && sb == 0) || rnd_mode == MPFR_RNDF)
     {
       MPFR_ASSERTD(ax >= __gmpfr_emin);
-      return 0; /* idem than MPFR_RET(0) but faster */
+      MPFR_RET (0);
     }
   else if (rnd_mode == MPFR_RNDN)
     {
@@ -142,7 +143,7 @@ mpfr_sqr_1n (mpfr_ptr a, mpfr_srcptr b, mpfr_rnd_t rnd_mode)
     {
       ax --;
       a0 = (a0 << 1) | (sb >> (GMP_NUMB_BITS - 1));
-      sb = sb << 1;
+      sb <<= 1;
     }
   rb = sb & MPFR_LIMB_HIGHBIT;
   sb = sb & ~MPFR_LIMB_HIGHBIT;
@@ -183,10 +184,10 @@ mpfr_sqr_1n (mpfr_ptr a, mpfr_srcptr b, mpfr_rnd_t rnd_mode)
  rounding:
   MPFR_EXP (a) = ax; /* Don't use MPFR_SET_EXP since ax might be < __gmpfr_emin
                         in the cases "goto rounding" above. */
-  if (rb == 0 && sb == 0)
+  if ((rb == 0 && sb == 0) || rnd_mode == MPFR_RNDF)
     {
       MPFR_ASSERTD(ax >= __gmpfr_emin);
-      return 0; /* idem than MPFR_RET(0) but faster */
+      MPFR_RET (0);
     }
   else if (rnd_mode == MPFR_RNDN)
     {
@@ -269,7 +270,7 @@ mpfr_sqr_2 (mpfr_ptr a, mpfr_srcptr b, mpfr_rnd_t rnd_mode, mpfr_prec_t p)
       ax --;
       h = (h << 1) | (l >> (GMP_NUMB_BITS - 1));
       l = (l << 1) | (sb >> (GMP_NUMB_BITS - 1));
-      sb = sb << 1;
+      sb <<= 1;
       /* no need to shift sb2 since we only want to know if it is zero or not */
     }
   ap[1] = h;
@@ -312,10 +313,10 @@ mpfr_sqr_2 (mpfr_ptr a, mpfr_srcptr b, mpfr_rnd_t rnd_mode, mpfr_prec_t p)
  rounding:
   MPFR_EXP (a) = ax; /* Don't use MPFR_SET_EXP since ax might be < __gmpfr_emin
                         in the cases "goto rounding" above. */
-  if (rb == 0 && sb == 0)
+  if ((rb == 0 && sb == 0) || rnd_mode == MPFR_RNDF)
     {
       MPFR_ASSERTD(ax >= __gmpfr_emin);
-      return 0; /* idem than MPFR_RET(0) but faster */
+      MPFR_RET (0);
     }
   else if (rnd_mode == MPFR_RNDN)
     {
@@ -411,7 +412,7 @@ mpfr_sqr_3 (mpfr_ptr a, mpfr_srcptr b, mpfr_rnd_t rnd_mode, mpfr_prec_t p)
       a2 = (a2 << 1) | (a1 >> (GMP_NUMB_BITS - 1));
       a1 = (a1 << 1) | (a0 >> (GMP_NUMB_BITS - 1));
       a0 = (a0 << 1) | (sb >> (GMP_NUMB_BITS - 1));
-      sb = sb << 1;
+      sb <<= 1;
       /* no need to shift sb2: we only need to know if it is zero or not */
     }
   ap[2] = a2;
@@ -451,10 +452,10 @@ mpfr_sqr_3 (mpfr_ptr a, mpfr_srcptr b, mpfr_rnd_t rnd_mode, mpfr_prec_t p)
  rounding:
   MPFR_EXP (a) = ax; /* Don't use MPFR_SET_EXP since ax might be < __gmpfr_emin
                         in the cases "goto rounding" above. */
-  if (rb == 0 && sb == 0)
+  if ((rb == 0 && sb == 0) || rnd_mode == MPFR_RNDF)
     {
       MPFR_ASSERTD(ax >= __gmpfr_emin);
-      return 0; /* idem than MPFR_RET(0) but faster */
+      MPFR_RET (0);
     }
   else if (rnd_mode == MPFR_RNDN)
     {
@@ -487,7 +488,8 @@ mpfr_sqr_3 (mpfr_ptr a, mpfr_srcptr b, mpfr_rnd_t rnd_mode, mpfr_prec_t p)
       MPFR_RET(MPFR_SIGN_POS);
     }
 }
-#endif
+
+#endif /* !defined(MPFR_GENERIC_ABI) && ... */
 
 /* Note: mpfr_sqr will call mpfr_mul if bn > MPFR_SQR_THRESHOLD,
    in order to use Mulders' mulhigh, which is handled only here

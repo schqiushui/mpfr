@@ -1,6 +1,6 @@
 /* mpfr_get_str -- output a floating-point number to a string
 
-Copyright 1999-2017 Free Software Foundation, Inc.
+Copyright 1999-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -59,7 +59,7 @@ static const char num_to_text62[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
    e represents the maximal error in the approximation to Y (see above),
       (e < 0 means that the approximation is known to be exact, i.e.,
       r*2^f = Y).
-   b is the wanted base (2 <= b <= 62).
+   b is the wanted base (2 <= b <= 62 or -36 <= b <= -2).
    m is the number of wanted digits in the significand.
    rnd is the rounding mode.
    It is assumed that b^(m-1) <= Y < b^(m+1), thus the returned value
@@ -82,6 +82,7 @@ mpfr_get_str_aux (char *const str, mpfr_exp_t *const exp, mp_limb_t *const r,
                   mpfr_rnd_t rnd)
 {
   const char *num_to_text;
+  int b0 = b;               /* initial base (might be negative) */
   int dir;                  /* direction of the rounded result */
   mp_limb_t ret = 0;        /* possible carry in addition */
   mp_size_t i0, j0;         /* number of limbs and bits of Y */
@@ -100,7 +101,8 @@ mpfr_get_str_aux (char *const str, mpfr_exp_t *const exp, mp_limb_t *const r,
 
   MPFR_TMP_MARK(marker);
 
-  num_to_text = b < 37 ? num_to_text36 : num_to_text62;
+  num_to_text = (2 <= b0 && b0 <= 36) ? num_to_text36 : num_to_text62;
+  b = (b0 > 0) ? b0 : -b0;
 
   /* R = 2^f sum r[i]K^(i)
      r[i] = (r_(i,k-1)...r_(i,0))_2
@@ -147,7 +149,7 @@ mpfr_get_str_aux (char *const str, mpfr_exp_t *const exp, mp_limb_t *const r,
 
       /* now the rounded value Y is in {r+i0, n-i0} */
 
-      /* convert r+i0 into base b */
+      /* convert r+i0 into base b: we use b0 which might be in -36..-2 */
       str1 = (unsigned char*) MPFR_TMP_ALLOC (m + 3); /* need one extra character for mpn_get_str */
       size_s1 = mpn_get_str (str1, b, r + i0, n - i0);
 
@@ -2230,7 +2232,7 @@ mpfr_ceil_mul (mpfr_exp_t e, int beta, int i)
 /* prints the mantissa of x in the string s, and writes the corresponding
    exponent in e.
    x is rounded with direction rnd, m is the number of digits of the mantissa,
-   b is the given base (2 <= b <= 62).
+   |b| is the given base (2 <= b <= 62 or -36 <= b <= -2).
 
    Return value:
    if s=NULL, allocates a string to store the mantissa, with
@@ -2238,7 +2240,7 @@ mpfr_ceil_mul (mpfr_exp_t e, int beta, int i)
    (thus m+1 or m+2 characters).
 
    Important: when you call this function with s=NULL, don't forget to free
-   the memory space allocated, with free(s, strlen(s)).
+   the memory space allocated, with mpfr_free_str.
 */
 char*
 mpfr_get_str (char *s, mpfr_exp_t *e, int b, size_t m, mpfr_srcptr x,
@@ -2258,7 +2260,8 @@ mpfr_get_str (char *s, mpfr_exp_t *e, int b, size_t m, mpfr_srcptr x,
   size_t n, i;
   char *s0;
   int neg;
-  int ret; /* return value of mpfr_get_str_aux */
+  int ret;    /* return value of mpfr_get_str_aux */
+  int b0 = b; /* initial base argument, might be negative */
   MPFR_ZIV_DECL (loop);
   MPFR_SAVE_EXPO_DECL (expo);
   MPFR_TMP_DECL (marker);
@@ -2271,16 +2274,25 @@ mpfr_get_str (char *s, mpfr_exp_t *e, int b, size_t m, mpfr_srcptr x,
       b, m, mpfr_get_prec (x), mpfr_log_prec, x, rnd),
      ("flags=%lx", (unsigned long) __gmpfr_flags));
 
-  /* is the base valid? */
-  if (b < 2 || b > 62)
+  /* Is the base argument valid? Valid values are -36 to -2 and 2 to 62. */
+  if (b < -36 || (-2 < b && b < 2) || 62 < b)
     return NULL;
 
-  num_to_text = b < 37 ? num_to_text36 : num_to_text62;
+  num_to_text = (2 <= b && b <= 36) ? num_to_text36 : num_to_text62;
+
+  b = (b > 0) ? b : -b;
+
+  /* now b is positive */
+
+  /* map RNDF to RNDN, to avoid problems with specification of mpfr_can_round
+     or mpfr_can_round_raw */
+  if (rnd == MPFR_RNDF)
+    rnd = MPFR_RNDN;
 
   if (MPFR_UNLIKELY (MPFR_IS_NAN (x)))
     {
       if (s == NULL)
-        s = (char *) (*__gmp_allocate_func) (6);
+        s = (char *) mpfr_allocate_func (6);
       strcpy (s, "@NaN@");
       MPFR_LOG_MSG (("%s\n", s));
       __gmpfr_flags |= MPFR_FLAGS_NAN;
@@ -2292,7 +2304,7 @@ mpfr_get_str (char *s, mpfr_exp_t *e, int b, size_t m, mpfr_srcptr x,
   if (MPFR_UNLIKELY (MPFR_IS_INF (x)))
     {
       if (s == NULL)
-        s = (char *) (*__gmp_allocate_func) (neg + 6);
+        s = (char *) mpfr_allocate_func (neg + 6);
       strcpy (s, (neg) ? "-@Inf@" : "@Inf@");
       MPFR_LOG_MSG (("%s\n", s));
       return s;
@@ -2319,13 +2331,14 @@ mpfr_get_str (char *s, mpfr_exp_t *e, int b, size_t m, mpfr_srcptr x,
 
   MPFR_LOG_MSG (("m=%zu\n", m));
 
-  /* the code below for non-power-of-two bases works for m=1 */
+  /* The code below for non-power-of-two bases works for m=1;
+     this is important for the internal use of mpfr_get_str. */
   MPFR_ASSERTN (m >= 2 || (!IS_POW2(b) && m >= 1));
 
   /* x is a floating-point number */
 
   if (s == NULL)
-    s = (char *) (*__gmp_allocate_func) (neg + m + 1);
+    s = (char *) mpfr_allocate_func (neg + m + 1);
   s0 = s;
   if (neg)
     *s++ = '-';
@@ -2530,7 +2543,7 @@ mpfr_get_str (char *s, mpfr_exp_t *e, int b, size_t m, mpfr_srcptr x,
       if (exact)
         err = -1;
 
-      ret = mpfr_get_str_aux (s, e, a, n, exp_a, err, b, m, rnd);
+      ret = mpfr_get_str_aux (s, e, a, n, exp_a, err, b0, m, rnd);
 
       MPFR_TMP_FREE (marker);
 
@@ -2572,5 +2585,5 @@ mpfr_get_str (char *s, mpfr_exp_t *e, int b, size_t m, mpfr_srcptr x,
 
 void mpfr_free_str (char *str)
 {
-  (*__gmp_free_func) (str, strlen (str) + 1);
+  mpfr_free_func (str, strlen (str) + 1);
 }

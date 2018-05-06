@@ -1,7 +1,7 @@
 /* Test file for mpfr_add_[q,z], mpfr_sub_[q,z], mpfr_div_[q,z],
    mpfr_mul_[q,z], mpfr_cmp_[f,q,z]
 
-Copyright 2004-2017 Free Software Foundation, Inc.
+Copyright 2004-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -31,8 +31,9 @@ http://www.gnu.org/licenses/ or write to the Free Software Foundation, Inc.,
             str, res, __gmpfr_flags);                                   \
     printf ("Got "); mpfr_dump (y);                                     \
     printf ("X = "); mpfr_dump (x);                                     \
-    printf ("Q = "); mpz_dump (mpq_numref(q));                          \
-    printf ("   /"); mpz_dump (mpq_denref(q));                          \
+    printf ("Q = "); mpz_out_str (stdout, 10, mpq_numref(q));           \
+    printf ("\n   /"); mpz_out_str (stdout, 10, mpq_denref(q));         \
+    printf ("\n");                                                      \
     exit (1);                                                           \
   }
 
@@ -42,7 +43,8 @@ http://www.gnu.org/licenses/ or write to the Free Software Foundation, Inc.,
             str, res, __gmpfr_flags);                                   \
     printf ("Got "); mpfr_dump (y);                                     \
     printf ("X = "); mpfr_dump (x);                                     \
-    printf ("Z = "); mpz_dump (z);                                      \
+    printf ("Z = "); mpz_out_str (stdout, 10, z);                       \
+    printf ("\n");                                                      \
     exit (1);                                                           \
   }
 
@@ -276,7 +278,7 @@ test_cmp_z (mpfr_prec_t pmin, mpfr_prec_t pmax, int nmax)
           if (!MPFR_IS_SINGULAR (x))
             {
               mpfr_sub_z (z, x, y, MPFR_RNDN);
-              res1 = mpfr_sgn (z);
+              res1 = (mpfr_sgn) (z);
               res2 = mpfr_cmp_z (x, y);
               if (res1 != res2)
                 {
@@ -328,7 +330,7 @@ test_cmp_q (mpfr_prec_t pmin, mpfr_prec_t pmax, int nmax)
           if (!MPFR_IS_SINGULAR (x))
             {
               mpfr_sub_q (z, x, y, MPFR_RNDN);
-              res1 = mpfr_sgn (z);
+              res1 = (mpfr_sgn) (z);
               res2 = mpfr_cmp_q (x, y);
               if (res1 != res2)
                 {
@@ -382,7 +384,7 @@ test_cmp_f (mpfr_prec_t pmin, mpfr_prec_t pmax, int nmax)
             {
               mpfr_set_f (z, y, MPFR_RNDN);
               mpfr_sub   (z, x, z, MPFR_RNDN);
-              res1 = mpfr_sgn (z);
+              res1 = (mpfr_sgn) (z);
               res2 = mpfr_cmp_f (x, y);
               if (res1 != res2)
                 {
@@ -571,13 +573,13 @@ test_genericz (mpfr_prec_t p0, mpfr_prec_t p1, unsigned int N,
         {
           mpfr_urandomb (arg1, RANDS);
           mpz_urandomb (arg2, RANDS, 1024);
-          rnd = RND_RAND ();
+          rnd = RND_RAND_NO_RNDF ();
           mpfr_set_prec (dst_big, 2*prec);
-          compare = func(dst_big, arg1, arg2, rnd);
+          compare = func (dst_big, arg1, arg2, rnd);
           if (mpfr_can_round (dst_big, 2*prec, rnd, rnd, prec))
             {
               mpfr_set (tmp, dst_big, rnd);
-              inexact = func(dst_small, arg1, arg2, rnd);
+              inexact = func (dst_small, arg1, arg2, rnd);
               if (mpfr_cmp (tmp, dst_small))
                 {
                   printf ("Results differ for prec=%u rnd_mode=%s and %s_z:\n"
@@ -648,7 +650,7 @@ test_generic2z (mpfr_prec_t p0, mpfr_prec_t p1, unsigned int N,
         {
           mpfr_urandomb (arg1, RANDS);
           mpz_urandomb (arg2, RANDS, 1024);
-          rnd = RND_RAND ();
+          rnd = RND_RAND_NO_RNDF ();
           mpfr_set_prec (dst_big, 2*prec);
           compare = func(dst_big, arg2, arg1, rnd);
           if (mpfr_can_round (dst_big, 2*prec, rnd, rnd, prec))
@@ -726,7 +728,7 @@ test_genericq (mpfr_prec_t p0, mpfr_prec_t p1, unsigned int N,
           mpfr_urandomb (arg1, RANDS);
           mpq_set_ui (arg2, randlimb (), randlimb() );
           mpq_canonicalize (arg2);
-          rnd = RND_RAND ();
+          rnd = RND_RAND_NO_RNDF ();
           mpfr_set_prec (dst_big, prec+10);
           compare = func(dst_big, arg1, arg2, rnd);
           if (mpfr_can_round (dst_big, prec+10, rnd, rnd, prec))
@@ -1199,11 +1201,12 @@ coverage_mpfr_mul_q_20110218 (void)
   mpfr_set_inf (cmp, -1);
   if ((status != 0) || (mpfr_cmp(res, cmp) != 0))
     {
-      printf ("mpfr_mul_q 1 * (-1/0) returned a wrong value :\n waiting for ");
-      mpfr_print_binary (cmp);
-      printf (" got ");
+      printf ("mpfr_mul_q 1 * (-1/0) returned a wrong value:\n");
+      printf ("  expected ");
+      mpfr_dump (cmp);
+      printf ("  got      ");
       mpfr_dump (res);
-      printf ("ternary value is %d\n", status);
+      printf ("  ternary value is %d\n", status);
       exit (1);
     }
 

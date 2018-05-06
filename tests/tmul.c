@@ -1,6 +1,6 @@
 /* Test file for mpfr_mul.
 
-Copyright 1999, 2001-2017 Free Software Foundation, Inc.
+Copyright 1999, 2001-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -227,12 +227,22 @@ check_exact (void)
               printf ("unexpected inexact return value\n");
               exit (1);
             }
-          if ((inexact == 0) && mpfr_cmp (c, d))
+          if ((inexact == 0) && mpfr_cmp (c, d) && rnd != MPFR_RNDF)
             {
-              printf ("inexact=0 but results differ\n");
+              printf ("rnd=%s: inexact=0 but results differ\n",
+                      mpfr_print_rnd_mode (rnd));
+              printf ("a=");
+              mpfr_out_str (stdout, 2, 0, a, rnd);
+              printf ("\nb=");
+              mpfr_out_str (stdout, 2, 0, b, rnd);
+              printf ("\nc=");
+              mpfr_out_str (stdout, 2, 0, c, rnd);
+              printf ("\nd=");
+              mpfr_out_str (stdout, 2, 0, d, rnd);
+              printf ("\n");
               exit (1);
             }
-          else if (inexact && (mpfr_cmp (c, d) == 0))
+          else if (inexact && (mpfr_cmp (c, d) == 0) && rnd != MPFR_RNDF)
             {
               printf ("inexact!=0 but results agree\n");
               printf ("prec=%u rnd=%s a=", (unsigned int) prec,
@@ -341,7 +351,7 @@ check_min(void)
   mpfr_set_str1(yy, "0.9375");
   mpfr_mul_2si(yy, yy, MPFR_EMIN_DEFAULT - MPFR_EMIN_DEFAULT/2 - 1, MPFR_RNDN);
   test_mul(zz, xx, yy, MPFR_RNDD);
-  if (mpfr_sgn(zz) != 0)
+  if (MPFR_NOTZERO (zz))
     {
       printf("check_min failed: got ");
       mpfr_out_str(stdout, 2, 0, zz, MPFR_RNDZ);
@@ -624,6 +634,56 @@ valgrind20110503 (void)
   mpfr_clears (a, b, c, (mpfr_ptr) 0);
 }
 
+static void
+testall_rndf (mpfr_prec_t pmax)
+{
+  mpfr_t a, b, c, d;
+  mpfr_prec_t pa, pb, pc;
+
+  for (pa = MPFR_PREC_MIN; pa <= pmax; pa++)
+    {
+      mpfr_init2 (a, pa);
+      mpfr_init2 (d, pa);
+      for (pb = MPFR_PREC_MIN; pb <= pmax; pb++)
+        {
+          mpfr_init2 (b, pb);
+          mpfr_set_ui (b, 1, MPFR_RNDN);
+          while (mpfr_cmp_ui (b, 2) < 0)
+            {
+              for (pc = MPFR_PREC_MIN; pc <= pmax; pc++)
+                {
+                  mpfr_init2 (c, pc);
+                  mpfr_set_ui (c, 1, MPFR_RNDN);
+                  while (mpfr_cmp_ui (c, 2) < 0)
+                    {
+                      mpfr_mul (a, b, c, MPFR_RNDF);
+                      mpfr_mul (d, b, c, MPFR_RNDD);
+                      if (!mpfr_equal_p (a, d))
+                        {
+                          mpfr_mul (d, b, c, MPFR_RNDU);
+                          if (!mpfr_equal_p (a, d))
+                            {
+                              printf ("Error: mpfr_mul(a,b,c,RNDF) does not "
+                                      "match RNDD/RNDU\n");
+                              printf ("b="); mpfr_dump (b);
+                              printf ("c="); mpfr_dump (c);
+                              printf ("a="); mpfr_dump (a);
+                              exit (1);
+                            }
+                        }
+                      mpfr_nextabove (c);
+                    }
+                  mpfr_clear (c);
+                }
+              mpfr_nextabove (b);
+            }
+          mpfr_clear (b);
+        }
+      mpfr_clear (a);
+      mpfr_clear (d);
+    }
+}
+
 /* Check underflow flag corresponds to *after* rounding.
  *
  * More precisely, we want to test mpfr_mul on inputs b and c such that
@@ -850,6 +910,39 @@ bug20161209a (void)
   set_emin (emin);
 }
 
+/* bug for RNDF */
+static void
+bug20170602 (void)
+{
+  mpfr_t x, u, y, yd, yu;
+
+  mpfr_init2 (x, 493);
+  mpfr_init2 (u, 493);
+  mpfr_init2 (y, 503);
+  mpfr_init2 (yd, 503);
+  mpfr_init2 (yu, 503);
+  mpfr_set_str_binary (x, "0.1111100000000000001111111110000000001111111111111000000000000000000011111111111111111111111000000000000000000001111111111111111111111111111111111111111000000000011111111111111111111000000000011111111111111000000000000001110000000000000000000000000000000000000000011111111111110011111111111100000000000000011111111111111111110000000011111111111111111110011111111111110000000000001111111111111111000000000000000000000000000000000000111111111111111111111111111111011111111111111111111111111111100E44");
+  mpfr_set_str_binary (u, "0.1110000000000000001111111111111111111111111111111111111000000000111111111111111111111111111111000000000000000000001111111000000000000000011111111111111111111111111111111111111111111111111111111000000000000000011111111111111000000011111111111111111110000000000000001111111111111111111111111111111111111110000000000001111111111111111111111111111111111111000000000000000000000000000000000001111111111111000000000000000000001111111111100000000000000011111111111111111111111111111111111111111111111E35");
+  mpfr_mul (y, x, u, MPFR_RNDF);
+  mpfr_mul (yd, x, u, MPFR_RNDD);
+  mpfr_mul (yu, x, u, MPFR_RNDU);
+  if (mpfr_cmp (y, yd) != 0 && mpfr_cmp (y, yu) != 0)
+    {
+      printf ("RNDF is neither RNDD nor RNDU\n");
+      printf ("x"); mpfr_dump (x);
+      printf ("u"); mpfr_dump (u);
+      printf ("y(RNDF)="); mpfr_dump (y);
+      printf ("y(RNDD)="); mpfr_dump (yd);
+      printf ("y(RNDU)="); mpfr_dump (yu);
+      exit (1);
+    }
+  mpfr_clear (x);
+  mpfr_clear (u);
+  mpfr_clear (y);
+  mpfr_clear (yd);
+  mpfr_clear (yu);
+}
+
 /* Test for 1 to 3 limbs. */
 static void
 small_prec (void)
@@ -901,7 +994,7 @@ small_prec (void)
         if (s & 1)
           mpfr_neg (y, y, MPFR_RNDN);
         s >>= 1;
-        rnd = RND_RAND ();
+        rnd = RND_RAND_NO_RNDF ();
         inex1 = mpfr_mul (zz, x, y, MPFR_RNDN);
         MPFR_ASSERTN (inex1 == 0);
         if (s == 0)
@@ -999,6 +1092,7 @@ main (int argc, char *argv[])
 {
   tests_start_mpfr ();
 
+  testall_rndf (9);
   check_nans ();
   check_exact ();
   check_float ();
@@ -1045,6 +1139,7 @@ main (int argc, char *argv[])
   test_underflow (128);
   bug20161209 ();
   bug20161209a ();
+  bug20170602 ();
   test_underflow2 ();
 
   tests_end_mpfr ();

@@ -1,6 +1,6 @@
 /* mpfr_hypot -- Euclidean distance
 
-Copyright 2001-2017 Free Software Foundation, Inc.
+Copyright 2001-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -98,7 +98,13 @@ mpfr_hypot (mpfr_ptr z, mpfr_srcptr x, mpfr_srcptr y, mpfr_rnd_t rnd_mode)
           /* If z > abs(x), then it was already rounded up; otherwise
              z = abs(x), and we need to add one ulp due to y. */
           if (mpfr_abs (z, x, rnd_mode) == 0)
-            mpfr_nexttoinf (z);
+            {
+              mpfr_nexttoinf (z);
+              /* since mpfr_nexttoinf does not set the overflow flag,
+                 we have to check manually for overflow */
+              if (MPFR_UNLIKELY (MPFR_IS_INF (z)))
+                MPFR_SET_OVERFLOW ();
+            }
           MPFR_RET (1);
         }
       else /* MPFR_RNDZ, MPFR_RNDD, MPFR_RNDN */
@@ -188,7 +194,7 @@ mpfr_hypot (mpfr_ptr z, mpfr_srcptr x, mpfr_srcptr y, mpfr_rnd_t rnd_mode)
   MPFR_ZIV_FREE (loop);
 
   MPFR_BLOCK (flags, inexact = mpfr_div_2si (z, t, sh, rnd_mode));
-  MPFR_ASSERTD (exact == 0 || inexact != 0);
+  MPFR_ASSERTD (exact == 0 || inexact != 0 || rnd_mode == MPFR_RNDF);
 
   mpfr_clear (t);
   mpfr_clear (ti);

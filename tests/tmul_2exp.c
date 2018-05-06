@@ -1,6 +1,6 @@
 /* Test file for mpfr_{mul,div}_2{ui,si}.
 
-Copyright 1999, 2001-2004, 2006-2017 Free Software Foundation, Inc.
+Copyright 1999, 2001-2004, 2006-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -69,7 +69,7 @@ underflow (mpfr_exp_t e)
         for (prec = 6; prec >= 3; prec -= 3)
           {
             mpfr_inits2 (prec, z1, z2, (mpfr_ptr) 0);
-            RND_LOOP (rnd)
+            RND_LOOP_NO_RNDF (rnd)
               for (k = 1; k <= 4; k++)
                 {
                   /* The following one is assumed to be correct. */
@@ -112,11 +112,11 @@ underflow (mpfr_exp_t e)
                       printf ("Expected ");
                       mpfr_out_str (stdout, 16, 0, z1, MPFR_RNDN);
                       printf (", inex = %d, flags = %u\n",
-                              SIGN (inex1), flags1);
+                              VSIGN (inex1), flags1);
                       printf ("Got      ");
                       mpfr_out_str (stdout, 16, 0, z2, MPFR_RNDN);
                       printf (", inex = %d, flags = %u\n",
-                              SIGN (inex2), flags2);
+                              VSIGN (inex2), flags2);
                       exit (1);
                     }  /* div */
                 }  /* k */
@@ -265,7 +265,7 @@ overflow0 (mpfr_exp_t emax)
 
   for (neg = 0; neg <= 1; neg++)
     {
-      RND_LOOP (r)
+      RND_LOOP_NO_RNDF (r)
         {
           int inex1, inex2;
           mpfr_flags_t flags1, flags2;

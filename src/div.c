@@ -1,6 +1,6 @@
 /* mpfr_div -- divide two floating-point numbers
 
-Copyright 1999, 2001-2017 Free Software Foundation, Inc.
+Copyright 1999, 2001-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -71,7 +71,8 @@ mpfr_div2_approx (mpfr_limb_ptr Q1, mpfr_limb_ptr Q0,
 
   /* we ignore yy below, but first increment r0, to ensure we get a lower
      approximation of the remainder */
-  r0 += (yy != 0);
+  r0 += yy != 0;
+  r1 += r0 == 0 && yy != 0;
   r0 = u0 - r0;
   r1 = u1 - r1 - (r0 > u0);
 
@@ -205,10 +206,10 @@ mpfr_div_1 (mpfr_ptr q, mpfr_srcptr u, mpfr_srcptr v, mpfr_rnd_t rnd_mode)
 
   MPFR_EXP (q) = qx; /* Don't use MPFR_SET_EXP since qx might be < __gmpfr_emin
                         in the cases "goto rounding" above. */
-  if (rb == 0 && sb == 0)
+  if ((rb == 0 && sb == 0) || rnd_mode == MPFR_RNDF)
     {
       MPFR_ASSERTD(qx >= __gmpfr_emin);
-      return 0; /* idem than MPFR_RET(0) but faster */
+      MPFR_RET (0);
     }
   else if (rnd_mode == MPFR_RNDN)
     {
@@ -348,10 +349,10 @@ mpfr_div_1n (mpfr_ptr q, mpfr_srcptr u, mpfr_srcptr v, mpfr_rnd_t rnd_mode)
 
   MPFR_EXP (q) = qx; /* Don't use MPFR_SET_EXP since qx might be < __gmpfr_emin
                         in the cases "goto rounding" above. */
-  if (rb == 0 && sb == 0)
+  if ((rb == 0 && sb == 0) || rnd_mode == MPFR_RNDF)
     {
       MPFR_ASSERTD(qx >= __gmpfr_emin);
-      return 0; /* idem than MPFR_RET(0) but faster */
+      MPFR_RET (0);
     }
   else if (rnd_mode == MPFR_RNDN)
     {
@@ -611,10 +612,10 @@ mpfr_div_2 (mpfr_ptr q, mpfr_srcptr u, mpfr_srcptr v, mpfr_rnd_t rnd_mode)
 
   MPFR_EXP (q) = qx; /* Don't use MPFR_SET_EXP since qx might be < __gmpfr_emin
                         in the cases "goto rounding" above. */
-  if (rb == 0 && sb == 0)
+  if ((rb == 0 && sb == 0) || rnd_mode == MPFR_RNDF)
     {
       MPFR_ASSERTD(qx >= __gmpfr_emin);
-      return 0; /* idem than MPFR_RET(0) but faster */
+      MPFR_RET (0);
     }
   else if (rnd_mode == MPFR_RNDN)
     {
@@ -650,21 +651,6 @@ mpfr_div_2 (mpfr_ptr q, mpfr_srcptr u, mpfr_srcptr v, mpfr_rnd_t rnd_mode)
 }
 
 #endif /* !defined(MPFR_GENERIC_ABI) */
-
-#ifdef DEBUG2
-#define mpfr_mpn_print(ap,n) mpfr_mpn_print3 (ap,n,MPFR_LIMB_ZERO)
-static void
-mpfr_mpn_print3 (mpfr_limb_ptr ap, mp_size_t n, mp_limb_t cy)
-{
-  mp_size_t i;
-  for (i = 0; i < n; i++)
-    printf ("+%lu*2^%lu", (unsigned long) ap[i], (unsigned long)
-            (GMP_NUMB_BITS * i));
-  if (cy)
-    printf ("+2^%lu", (unsigned long) (GMP_NUMB_BITS * n));
-  printf ("\n");
-}
-#endif
 
 /* check if {ap, an} is zero */
 static int
@@ -1052,9 +1038,6 @@ mpfr_div (mpfr_ptr q, mpfr_srcptr u, mpfr_srcptr v, mpfr_rnd_t rnd_mode)
       else /* k=0: no more dividend limb */
         extra_bit = mpfr_mpn_cmpzero (vp, l) == 0;
     }
-#ifdef DEBUG
-  printf ("extra_bit=%d\n", extra_bit);
-#endif
 
   /* set exponent */
   qexp = MPFR_GET_EXP (u) - MPFR_GET_EXP (v) + extra_bit;
@@ -1225,10 +1208,6 @@ mpfr_div (mpfr_ptr q, mpfr_srcptr u, mpfr_srcptr v, mpfr_rnd_t rnd_mode)
   /* if Mulders' short division failed, we revert to division with remainder */
   qh = mpn_divrem (qp, 0, ap + k, qqsize - k, bp, qsize - k);
   /* warning: qh may be 1 if u1 == v1, but u < v */
-#ifdef DEBUG2
-  printf ("q="); mpfr_mpn_print (qp, qsize);
-  printf ("r="); mpfr_mpn_print (ap, qsize);
-#endif
 
   k = qsize;
   sticky_u = sticky_u || mpfr_mpn_cmpzero (ap, k);
@@ -1256,20 +1235,12 @@ mpfr_div (mpfr_ptr q, mpfr_srcptr u, mpfr_srcptr v, mpfr_rnd_t rnd_mode)
      including the round bit, and 1 <= sh2 <= GMP_NUMB_BITS
      is the number of bits in sticky3 */
   inex = (sticky != MPFR_LIMB_ZERO) || (sticky3 != MPFR_LIMB_ZERO);
-#ifdef DEBUG
-  printf ("sticky=%lu sticky3=%lu inex=%d\n",
-          (unsigned long) sticky, (unsigned long) sticky3, inex);
-#endif
 
   /* to round, we distinguish two cases:
      (a) vsize <= qsize: we used the full divisor
      (b) vsize > qsize: the divisor was truncated
   */
 
-#ifdef DEBUG
-  printf ("vsize=%lu qsize=%lu\n",
-          (unsigned long) vsize, (unsigned long) qsize);
-#endif
   if (MPFR_LIKELY(vsize <= qsize)) /* use the full divisor */
     {
       if (MPFR_LIKELY(rnd_mode == MPFR_RNDN))
@@ -1302,10 +1273,6 @@ mpfr_div (mpfr_ptr q, mpfr_srcptr u, mpfr_srcptr v, mpfr_rnd_t rnd_mode)
             {
               round_bit = sticky3 & (MPFR_LIMB_ONE << (sh2 - 1));
               sticky3   = sticky3 ^ round_bit;
-#ifdef DEBUG
-              printf ("rb=%lu sb=%lu\n",
-                      (unsigned long) round_bit, (unsigned long) sticky3);
-#endif
             }
           if (sticky3 != MPFR_LIMB_ZERO && sticky3 != MPFR_LIMB_ONE)
             {
@@ -1343,9 +1310,6 @@ mpfr_div (mpfr_ptr q, mpfr_srcptr u, mpfr_srcptr v, mpfr_rnd_t rnd_mode)
                     mpfr_mpn_cmp_aux (sp, k, up, usize - qqsize, extra_bit) :
                     mpfr_mpn_cmpzero (sp, k);
                 }
-#ifdef DEBUG
-              printf ("cmp(q*v0,r+u0)=%d\n", cmp_s_r);
-#endif
               /* now cmp_s_r > 0 if {sp, vsize} > {ap, qsize} + low(u)
                      cmp_s_r = 0 if {sp, vsize} = {ap, qsize} + low(u)
                      cmp_s_r < 0 if {sp, vsize} < {ap, qsize} + low(u) */
@@ -1403,9 +1367,6 @@ mpfr_div (mpfr_ptr q, mpfr_srcptr u, mpfr_srcptr v, mpfr_rnd_t rnd_mode)
                         cmp_s_r = 1; /* since in fact we subtracted
                                         less than 1 */
                     }
-#ifdef DEBUG
-                  printf ("cmp(q*v0-(r+u0),v)=%d\n", cmp_s_r);
-#endif
                   if (cmp_s_r <= 0) /* q1-1 <= u/v < q1 */
                     {
                       if (sticky3 == MPFR_LIMB_ONE)

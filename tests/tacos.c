@@ -1,6 +1,6 @@
 /* Test file for mpfr_acos.
 
-Copyright 2001-2017 Free Software Foundation, Inc.
+Copyright 2001-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -136,7 +136,7 @@ main (void)
   /* acos (1) = 0 */
   mpfr_set_ui (x, 1, MPFR_RNDN);
   mpfr_acos (y, x, MPFR_RNDN);
-  if (mpfr_cmp_ui (y, 0) || mpfr_sgn (y) < 0)
+  if (MPFR_NOTZERO (y) || MPFR_IS_NEG (y))
     {
       printf ("Error: acos(1) != +0.0\n");
       exit (1);

@@ -1,6 +1,6 @@
 /* mpfr_sqrt -- square root of a floating-point number
 
-Copyright 1999-2017 Free Software Foundation, Inc.
+Copyright 1999-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -155,12 +155,12 @@ mpfr_sqrt1 (mpfr_ptr r, mpfr_srcptr u, mpfr_rnd_t rnd_mode)
 
  rounding:
   MPFR_EXP (r) = exp_r;
-  if (sb == 0) /* implies rb = 0 */
+  if (sb == 0 /* implies rb = 0 */ || rnd_mode == MPFR_RNDF)
     {
-      MPFR_ASSERTD (rb == 0);
+      MPFR_ASSERTD (rb == 0 || rnd_mode == MPFR_RNDF);
       MPFR_ASSERTD(exp_r >= __gmpfr_emin);
       MPFR_ASSERTD(exp_r <= __gmpfr_emax);
-      return 0; /* idem than MPFR_RET(0) but faster */
+      MPFR_RET (0);
     }
   else if (rnd_mode == MPFR_RNDN)
     {
@@ -284,11 +284,11 @@ mpfr_sqrt1n (mpfr_ptr r, mpfr_srcptr u, mpfr_rnd_t rnd_mode)
 
  rounding:
   MPFR_EXP (r) = exp_r;
-  if (sb == 0) /* implies rb = 0 */
+  if (sb == 0 /* implies rb = 0 */ || rnd_mode == MPFR_RNDF)
     {
       MPFR_ASSERTD(exp_r >= __gmpfr_emin);
       MPFR_ASSERTD(exp_r <= __gmpfr_emax);
-      return 0; /* idem than MPFR_RET(0) but faster */
+      MPFR_RET (0);
     }
   else if (rnd_mode == MPFR_RNDN)
     {
@@ -433,11 +433,11 @@ mpfr_sqrt2 (mpfr_ptr r, mpfr_srcptr u, mpfr_rnd_t rnd_mode)
 
  rounding:
   MPFR_EXP (r) = exp_r;
-  if (sb == 0) /* implies rb = 0 */
+  if (sb == 0 /* implies rb = 0 */ || rnd_mode == MPFR_RNDF)
     {
       MPFR_ASSERTD(exp_r >= __gmpfr_emin);
       MPFR_ASSERTD(exp_r <= __gmpfr_emax);
-      return 0; /* idem than MPFR_RET(0) but faster */
+      MPFR_RET (0);
     }
   else if (rnd_mode == MPFR_RNDN)
     {
@@ -471,6 +471,7 @@ mpfr_sqrt2 (mpfr_ptr r, mpfr_srcptr u, mpfr_rnd_t rnd_mode)
       MPFR_RET(1);
     }
 }
+
 #endif /* !defined(MPFR_GENERIC_ABI) && GMP_NUMB_BITS == 64 */
 
 int

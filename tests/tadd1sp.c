@@ -1,6 +1,6 @@
 /* Test file for mpfr_add1sp.
 
-Copyright 2004-2017 Free Software Foundation, Inc.
+Copyright 2004-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -54,6 +54,24 @@ check_overflow (void)
   set_emax (emax);
 }
 
+static void
+bug20171217 (void)
+{
+  mpfr_t a, b, c;
+
+  mpfr_init2 (a, 137);
+  mpfr_init2 (b, 137);
+  mpfr_init2 (c, 137);
+  mpfr_set_str_binary (b, "0.11111111111111111111111111111111111111111111111111111111111111111111000000000000000000000000000000000000000000000000000000000000000000000E-66");
+  mpfr_set_str_binary (c, "0.11111111111111111111111111111111111111111111111111111111111111111000000000000000000000000000000000000000000000000000000000000000000110000E-2");
+  mpfr_add (a, b, c, MPFR_RNDN);
+  mpfr_set_str_binary (b, "0.10000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000001000E-1");
+  MPFR_ASSERTN(mpfr_equal_p (a, b));
+  mpfr_clear (a);
+  mpfr_clear (b);
+  mpfr_clear (c);
+}
+
 int
 main (void)
 {
@@ -61,6 +79,7 @@ main (void)
 
   tests_start_mpfr ();
 
+  bug20171217 ();
   check_special ();
   for(p = MPFR_PREC_MIN; p < 200 ; p++)
     check_random (p);
@@ -140,6 +159,11 @@ check_random (mpfr_prec_t p)
             {
               mpfr_flags_t flags1, flags2;
 
+              if (r == MPFR_RNDF) /* inexact makes no sense, moreover
+                                     mpfr_add1 and mpfr_add1sp could
+                                     return different values */
+                continue;
+
               mpfr_clear_flags ();
               inexact1 = mpfr_add1 (a1, bs, cs, (mpfr_rnd_t) r);
               flags1 = __gmpfr_flags;
@@ -170,6 +194,9 @@ check_special (void)
 
   for (r = 0 ; r < MPFR_RND_MAX ; r++)
     {
+      if (r == MPFR_RNDF)
+        continue; /* inexact makes no sense, mpfr_add1 and mpfr_add1sp
+                     could differ */
       SET_PREC(53);
       mpfr_set_str1 (b, "1@100");
       mpfr_set_str1 (c, "1@1");

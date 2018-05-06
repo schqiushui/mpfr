@@ -4,7 +4,7 @@ dnl WARNING! C code starting with # (preprocessor directives) must not
 dnl be indented!
 
 AC_COPYRIGHT([
-Copyright 1999-2017 Free Software Foundation, Inc.
+Copyright 1999-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -26,7 +26,7 @@ http://www.gnu.org/licenses/ or write to the Free Software Foundation, Inc.,
 ])
 
 dnl Add check-news when it checks for more than 15 lines
-AC_INIT([MPFR],[4.0.0-dev])
+AC_INIT([MPFR],[4.0.1])
 
 dnl Older Automake versions than 1.13 may still be supported, but no longer
 dnl tested, and many things have changed in 1.13. Moreover the INSTALL file
@@ -136,10 +136,10 @@ AC_ARG_ENABLE(gmp-internals,
 AC_ARG_ENABLE(assert,
    [  --enable-assert         enable ASSERT checking [[default=no]]],
    [ case $enableval in
-      yes) AC_DEFINE([MPFR_WANT_ASSERT],1,[Want assertion]) ;;
+      yes) AC_DEFINE([MPFR_WANT_ASSERT],1,[Want all simple assertions]) ;;
       none) AC_DEFINE([MPFR_WANT_ASSERT],-1,[Do no want any assertion]) ;;
       no)  ;;
-      full) AC_DEFINE([MPFR_WANT_ASSERT],2,[Want assertion]) ;;
+      full) AC_DEFINE([MPFR_WANT_ASSERT],2,[Want full assertions]) ;;
       *) AC_MSG_ERROR([bad value for --enable-assert: yes, no, none or full]) ;;
      esac])
 
@@ -147,7 +147,7 @@ AC_ARG_ENABLE(logging,
    [  --enable-logging        enable MPFR logging (the system must support it)
                           [[default=no]]],
    [ case $enableval in
-      yes) AC_DEFINE([MPFR_USE_LOGGING],1,[Log what MPFR does]) ;;
+      yes) AC_DEFINE([MPFR_USE_LOGGING],1,[Enable MPFR logging support]) ;;
       no)  ;;
       *)   AC_MSG_ERROR([bad value for --enable-logging: yes or no]) ;;
      esac])
@@ -235,7 +235,7 @@ if test -z "$GMP_CC$GMP_CFLAGS" ; then
    # prefer cpp and gcc to /lib/cpp. However, note that this won't
    # work if GCC has been installed with versioned names only (e.g.
    # with cpp-5 and gcc-5).
-   for cpp in "cpp -P" "cpp" "gcc -P -E" "gcc -E" "/lib/cpp -P" "/lib/cpp" "cc -P -E" "cc -E" "c99 -P -E" "c99 -E"
+   for cpp in "cpp -P" "cpp" "gcc -P -E" "gcc -E" "/lib/cpp -P" "/lib/cpp" "cc -P -E" "cc -E" "c99 -P -E" "c99 -E" "clang -E" "cl -E" "icl -E"
    do
      # Get CC
      echo "#include \"gmp.h\"" > conftest.c
@@ -427,7 +427,7 @@ dnl     http://www.ncsa.illinois.edu/UserInfo/Resources/Software/Intel/Compilers
 AC_MSG_CHECKING(for ICC)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #if !defined(__ICC)
-# error "ICC Not Found"
+# error "Not ICC"
 error
 #endif
 ]], [[]])],[
@@ -515,6 +515,10 @@ dnl
 dnl Incidentally, libtool does generate an import library libmpfr.dll.a,
 dnl but it's "ar" format and cannot be used by the MS linker.  There
 dnl doesn't seem to be any GNU tool for generating or converting to .lib.
+dnl
+dnl The DLL version (the number in libmpfr-*.dll.def below) must be the
+dnl version of the oldest supported interface (i.e. CURRENT - AGE in
+dnl src/Makefile.am).
 AC_SUBST(MPFR_LDFLAGS)
 AC_SUBST(LIBMPFR_LDFLAGS)
 case $host in
@@ -522,7 +526,7 @@ case $host in
    AC_MSG_CHECKING(for DLL/static GMP)
    if test "$enable_shared" = yes; then
      MPFR_LDFLAGS="$MPFR_LDFLAGS -no-undefined"
-     LIBMPFR_LDFLAGS="$LIBMPFR_LDFLAGS -Wl,--output-def,.libs/libmpfr-4.dll.def"
+     LIBMPFR_LDFLAGS="$LIBMPFR_LDFLAGS -Wl,--output-def,.libs/libmpfr-6.dll.def"
      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include "gmp.h"
 #if !__GMP_LIBGMP_DLL
@@ -546,6 +550,36 @@ error
   ;;
 esac
 
+dnl Under Linux, make sure that the old dtags are used if LD_LIBRARY_PATH
+dnl is defined. The issue is that with the new dtags, LD_LIBRARY_PATH has
+dnl the precedence over the run path, so that if a compatible MPFR library
+dnl is installed in some directory from $LD_LIBRARY_PATH, then the tested
+dnl MPFR library will be this library instead of the MPFR library from the
+dnl build tree. Other OS with the same issue might be added later.
+dnl
+dnl References:
+dnl   https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=859732
+dnl   http://lists.gnu.org/archive/html/libtool/2017-05/msg00000.html
+dnl
+dnl We need to check whether --disable-new-dtags is supported as alternate
+dnl linkers may be used (e.g., with tcc: CC=tcc LD=tcc).
+dnl
+case $host in
+  *-*-linux*)
+    if test -n "$LD_LIBRARY_PATH"; then
+      saved_LDFLAGS="$LDFLAGS"
+      LDFLAGS="$LDFLAGS -Wl,--disable-new-dtags"
+      AC_MSG_CHECKING(whether --disable-new-dtags is supported by the linker)
+      AC_LINK_IFELSE([AC_LANG_SOURCE([[
+int main (void) { return 0; }
+      ]])],
+      [AC_MSG_RESULT(yes (use it since LD_LIBRARY_PATH is set))],
+      [AC_MSG_RESULT(no)
+       LDFLAGS="$saved_LDFLAGS"
+      ])
+    fi
+    ;;
+esac
 
 dnl
 dnl For mpfr-longlong.h - TODO: should be replaced (see acinclude.m4).
@@ -563,7 +597,7 @@ dnl We only guarantee that with a *functional* and recent enough GMP version,
 dnl MPFR will compile; we do not guarantee that GMP will compile.
 dnl In particular fat builds are broken in GMP 4.3.2 and GMP 5.0.0
 dnl (at least on 64-bit Core 2 under Linux),
-dnl see http://gmplib.org/list-archives/gmp-bugs/2011-August/002345.html.
+dnl see <https://gmplib.org/list-archives/gmp-bugs/2011-August/002345.html>.
 if test -z "$enable_mini_gmp" ; then
   AC_MSG_CHECKING(for recent GMP)
   AC_COMPILE_IFELSE([AC_LANG_SOURCE([[

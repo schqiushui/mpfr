@@ -1,6 +1,6 @@
 /* bernoulli -- internal function to compute Bernoulli numbers.
 
-Copyright 2005-2017 Free Software Foundation, Inc.
+Copyright 2005-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -24,7 +24,7 @@ http://www.gnu.org/licenses/ or write to the Free Software Foundation, Inc.,
 
 /* assume p >= 5 and is odd */
 static int
-isprime (unsigned long p)
+is_prime (unsigned long p)
 {
   unsigned long q;
 
@@ -68,7 +68,7 @@ mpfr_bernoulli_internal (mpz_t *b, unsigned long n)
   mpz_init_set_ui (den, 6);
   for (p = 5; p <= n+1; p += 2)
     {
-      if ((n % (p-1)) == 0 && isprime (p))
+      if ((n % (p-1)) == 0 && is_prime (p))
         mpz_mul_ui (den, den, p);
     }
   if (n <= 64)
@@ -216,12 +216,12 @@ mpfr_bernoulli_cache (unsigned long n)
         {
           bernoulli_alloc = MAX(16, n + n/4);
           bernoulli_table = (mpz_t *)
-            (*__gmp_allocate_func) (bernoulli_alloc * sizeof (mpz_t));
+            mpfr_allocate_func (bernoulli_alloc * sizeof (mpz_t));
           bernoulli_size  = 0;
         }
       else if (n >= bernoulli_alloc)
         {
-          bernoulli_table = (mpz_t *) (*__gmp_reallocate_func)
+          bernoulli_table = (mpz_t *) mpfr_reallocate_func
             (bernoulli_table, bernoulli_alloc * sizeof (mpz_t),
              (n + n/4) * sizeof (mpz_t));
           bernoulli_alloc = n + n/4;
@@ -247,7 +247,7 @@ mpfr_bernoulli_freecache (void)
         {
           mpz_clear (bernoulli_table[i]);
         }
-      (*__gmp_free_func) (bernoulli_table, bernoulli_alloc * sizeof (mpz_t));
+      mpfr_free_func (bernoulli_table, bernoulli_alloc * sizeof (mpz_t));
       bernoulli_table = NULL;
       bernoulli_alloc = 0;
       bernoulli_size = 0;

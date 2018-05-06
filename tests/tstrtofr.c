@@ -1,6 +1,6 @@
 /* Test file for mpfr_set_str.
 
-Copyright 2004-2017 Free Software Foundation, Inc.
+Copyright 2004-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -1077,7 +1077,7 @@ bug20081028 (void)
 }
 
 /* check that 1.23e is correctly parsed, cf
-   http://gmplib.org/list-archives/gmp-bugs/2010-March/001898.html */
+   https://gmplib.org/list-archives/gmp-bugs/2010-March/001898.html */
 static void
 test20100310 (void)
 {
@@ -1157,14 +1157,14 @@ bug20120829 (void)
       s[4+i] = 0;
       inex1 = mpfr_mul_ui (e, e, 10, MPFR_RNDN);
       MPFR_ASSERTN (inex1 == 0);
-      RND_LOOP(r)
+      RND_LOOP_NO_RNDF (r)
         {
           mpfr_rnd_t rnd = (mpfr_rnd_t) r;
 
           inex1 = mpfr_exp10 (x1, e, rnd);
-          inex1 = SIGN (inex1);
+          inex1 = VSIGN (inex1);
           inex2 = mpfr_strtofr (x2, s, NULL, 0, rnd);
-          inex2 = SIGN (inex2);
+          inex2 = VSIGN (inex2);
           /* On 32-bit machines, for i = 7, r8389, r8391 and r8394 do:
              strtofr.c:...: MPFR assertion failed: cy == 0
              r8396 is OK.
@@ -1206,10 +1206,19 @@ bug20161217 (void)
 
   mpfr_init2 (fp, 110);
   mpfr_init2 (z, 110);
+
   inex = mpfr_strtofr (fp, num, NULL, 10, MPFR_RNDN);
   MPFR_ASSERTN(inex == 0);
   mpfr_set_str_binary (z, "10001100001000010011110110011101101001010000001011011110010001010100010100100110111101000010001011001100001101E-9");
   MPFR_ASSERTN(mpfr_equal_p (fp, z));
+
+  /* try with 109 bits */
+  mpfr_set_prec (fp, 109);
+  inex = mpfr_strtofr (fp, num, NULL, 10, MPFR_RNDN);
+  MPFR_ASSERTN(inex < 0);
+  mpfr_set_str_binary (z, "10001100001000010011110110011101101001010000001011011110010001010100010100100110111101000010001011001100001100E-9");
+  MPFR_ASSERTN(mpfr_equal_p (fp, z));
+
   mpfr_clear (fp);
   mpfr_clear (z);
 }
@@ -1233,7 +1242,6 @@ bug20170308 (void)
   mpfr_set_emin (emin);
   mpfr_init2 (z, 53);
   inex = mpfr_strtofr (z, str, NULL, 10, MPFR_RNDN);
-  printf ("inex=%d z=", inex); mpfr_dump (z);
   MPFR_ASSERTN(inex < 0 && mpfr_cmp_ui_2exp (z, 1, -1075) == 0);
   mpfr_clear (z);
 }

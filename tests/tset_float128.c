@@ -1,6 +1,6 @@
 /* Test file for mpfr_set_float128 and mpfr_get_float128.
 
-Copyright 2012-2017 Free Software Foundation, Inc.
+Copyright 2012-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -145,10 +145,15 @@ check_special (void)
 static void
 check_large (void)
 {
+  mpfr_exp_t emin, emax;
   __float128 f, e;
   int i;
   mpfr_t x, y;
   int r;
+  int red;
+
+  emin = mpfr_get_emin ();
+  emax = mpfr_get_emax ();
 
   mpfr_init2 (x, 113);
   mpfr_init2 (y, 113);
@@ -173,12 +178,29 @@ check_large (void)
               mpfr_dump (x);
               exit (1);
             }
-          e =  mpfr_get_float128 (x, (mpfr_rnd_t) r);
-          if (e != f)
+          for (red = 0; red < 2; red++)
             {
-              printf ("mpfr_get_float128 failed for 2^%d*(1-2^(-113)) rnd=%s\n",
-                      i, mpfr_print_rnd_mode ((mpfr_rnd_t) r));
-              exit (1);
+              if (red)
+                {
+                  mpfr_exp_t ex;
+
+                  if (MPFR_IS_SINGULAR (x))
+                    break;
+                  ex = MPFR_GET_EXP (x);
+                  set_emin (ex);
+                  set_emax (ex);
+                }
+              e =  mpfr_get_float128 (x, (mpfr_rnd_t) r);
+              set_emin (emin);
+              set_emax (emax);
+              if (e != f)
+                {
+                  printf ("mpfr_get_float128 failed for 2^%d*(1-2^(-113))"
+                          " rnd=%s%s\n",
+                          i, mpfr_print_rnd_mode ((mpfr_rnd_t) r),
+                          red ? ", reduced exponent range" : "");
+                  exit (1);
+                }
             }
         }
 
@@ -218,83 +240,93 @@ check_large (void)
 static void
 check_small (void)
 {
-  __float128 f, e;
-  int i;
-  mpfr_t x, y;
-  int r;
+  int t[5] = { 1, 2, 17, 111, 112 };
+  mpfr_exp_t emin;
+  __float128 e, f;
+  int i, j, neg, inex, r;
+  mpfr_t w, x, y, z;
 
-  mpfr_init2 (x, 113);
-  mpfr_init2 (y, 113);
+  emin = mpfr_get_emin ();
 
-  /* check with the smallest positive normal float128 number */
+  mpfr_inits2 (113, w, x, y, z, (mpfr_ptr) 0);
+
   f = 1.0;
   mpfr_set_ui (y, 1, MPFR_RNDN);
-  for (i = 0; f != 0.0; i--)
+  for (i = 0; i > -16500; i--)
     {
-      RND_LOOP (r)
+      for (j = 0; j < 5; j++)
         {
-          mpfr_set_float128 (x, f, (mpfr_rnd_t) r);
-          if (! mpfr_equal_p (x, y))
+          mpfr_div_2ui (z, y, t[j], MPFR_RNDN);
+          inex = mpfr_add (z, z, y, MPFR_RNDN);
+          MPFR_ASSERTN (inex == 0);
+          /* z = y (1 + 2^(-t[j]) */
+          for (neg = 0; neg < 2; neg++)
             {
-              printf ("mpfr_set_float128 failed for 2^%d rnd=%s\n", i,
-                      mpfr_print_rnd_mode ((mpfr_rnd_t) r));
-              printf ("got ");
-              mpfr_dump (x);
-              exit (1);
+              RND_LOOP_NO_RNDF (r)
+                {
+                  if (j == 0 && f != 0)
+                    {
+                      /* This test does not depend on j. */
+                      mpfr_set_float128 (x, f, (mpfr_rnd_t) r);
+                      if (! mpfr_equal_p (x, y))
+                        {
+                          printf ("mpfr_set_float128 failed for "
+                                  "%c2^(%d) rnd=%s\n", neg ? '-' : '+', i,
+                                  mpfr_print_rnd_mode ((mpfr_rnd_t) r));
+                          printf ("got ");
+                          mpfr_dump (x);
+                          exit (1);
+                        }
+                      e =  mpfr_get_float128 (x, (mpfr_rnd_t) r);
+                      if (e != f)
+                        {
+                          printf ("mpfr_get_float128 failed for "
+                                  "%c2^(%d) rnd=%s\n", neg ? '-' : '+', i,
+                                  mpfr_print_rnd_mode ((mpfr_rnd_t) r));
+                          exit (1);
+                        }
+                    }
+                  if (i < -16378)
+                    {
+                      /* Subnormals or close to subnormals...
+                         Here we mainly test mpfr_get_float128. */
+                      e =  mpfr_get_float128 (z, (mpfr_rnd_t) r);
+                      mpfr_set_float128 (x, e, MPFR_RNDN); /* exact */
+                      inex = mpfr_set (w, z, MPFR_RNDN);
+                      MPFR_ASSERTN (inex == 0);
+                      mpfr_set_emin (-16493);
+                      inex = mpfr_check_range (w, 0, (mpfr_rnd_t) r);
+                      mpfr_subnormalize (w, inex, (mpfr_rnd_t) r);
+                      mpfr_set_emin (emin);
+                      if (! mpfr_equal_p (x, w))
+                        {
+                          printf ("mpfr_get_float128 failed for "
+                                  "%c(2^(%d))(1+2^(-%d)) rnd=%s\n",
+                                  neg ? '-' : '+', i, t[j],
+                                  mpfr_print_rnd_mode ((mpfr_rnd_t) r));
+                          printf ("expected ");
+                          mpfr_dump (w);
+                          printf ("got      ");
+                          mpfr_dump (x);
+                          exit (1);
+                        }
+                    }
+                }
+              f = -f;
+              mpfr_neg  (y, y, MPFR_RNDN);
+              mpfr_neg  (z, z, MPFR_RNDN);
             }
-          e =  mpfr_get_float128 (x, (mpfr_rnd_t) r);
-          if (e != f)
-            {
-              printf ("mpfr_get_float128 failed for 2^%d rnd=%s\n",
-                      i, mpfr_print_rnd_mode ((mpfr_rnd_t) r));
-              exit (1);
-            }
-
-          /* check with opposite number */
-          mpfr_set_float128 (x, -f, (mpfr_rnd_t) r);
-          mpfr_neg  (y, y, MPFR_RNDN);
-          if (! mpfr_equal_p (x, y))
-            {
-              printf ("mpfr_set_float128 failed for -2^%d rnd=%s\n", i,
-                      mpfr_print_rnd_mode ((mpfr_rnd_t) r));
-              printf ("got ");
-              mpfr_dump (x);
-              exit (1);
-            }
-          if (e != f)
-            {
-              printf ("mpfr_get_float128 failed for -2^%d rnd=%s\n",
-                      i, mpfr_print_rnd_mode ((mpfr_rnd_t) r));
-              exit (1);
-            }
-
-          mpfr_neg (y, y, MPFR_RNDN);
         }
       f =  0.5 * f;
       mpfr_div_2exp (y, y, 1, MPFR_RNDN);
     }
 
-  mpfr_clear (x);
-  mpfr_clear (y);
+  mpfr_clears (w, x, y, z, (mpfr_ptr) 0);
 }
 
 int
 main (int argc, char *argv[])
 {
-#ifdef WITH_FPU_CONTROL
-  fpu_control_t cw;
-
-  /* cw=895 (0x037f): round to double extended precision
-     cw=639 (0x027f): round to double precision
-     cw=127 (0x007f): round to single precision */
-  if (argc > 1)
-    {
-      cw = strtol(argv[1], NULL, 0);
-      printf ("FPU control word: 0x%x\n", (unsigned int) cw);
-      _FPU_SETCW (cw);
-    }
-#endif
-
   tests_start_mpfr ();
 
   check_special ();

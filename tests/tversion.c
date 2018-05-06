@@ -1,6 +1,6 @@
 /* Test file for mpfr_version.
 
-Copyright 2004-2017 Free Software Foundation, Inc.
+Copyright 2004-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -27,19 +27,26 @@ http://www.gnu.org/licenses/ or write to the Free Software Foundation, Inc.,
 #include "mpfr-intmax.h"
 #include "mpfr-test.h"
 
-#define STRINGIZE(S) #S
-#define MAKE_STR(S) STRINGIZE(S)
-
 int
 main (void)
 {
+  mpfr_exp_t e;
   int err = 0;
 
   /* Test the GMP and MPFR versions. */
   if (test_version ())
     exit (1);
 
+  tests_start_mpfr ();
+
+  /*********************** MPFR version and patches ************************/
+
   printf ("[tversion] MPFR %s\n", MPFR_VERSION_STRING);
+
+  if (strcmp (mpfr_get_patches (), "") != 0)
+    printf ("[tversion] MPFR patches: %s\n", mpfr_get_patches ());
+
+  /************************* Compiler information **************************/
 
   /* TODO: We may want to output info for non-GNUC-compat compilers too. See:
    * http://sourceforge.net/p/predef/wiki/Compilers/
@@ -139,7 +146,7 @@ main (void)
           "\n");
 #endif
 
-  /*************************************************************************/
+  /******************* GMP version and build information *******************/
 
 #ifdef __MPIR_VERSION
   printf ("[tversion] MPIR: header %d.%d.%d, library %s\n",
@@ -155,6 +162,13 @@ main (void)
 #endif
 #endif
 
+#ifdef __GMP_CC
+  printf ("[tversion] __GMP_CC = \"%s\"\n", __GMP_CC);
+#endif
+#ifdef __GMP_CFLAGS
+  printf ("[tversion] __GMP_CFLAGS = \"%s\"\n", __GMP_CFLAGS);
+#endif
+
   /* The following output is also useful under Unix, where one should get:
      WinDLL: __GMP_LIBGMP_DLL = 0, MPFR_WIN_THREAD_SAFE_DLL = undef
      If this is not the case, something is probably broken. We cannot test
@@ -162,7 +176,9 @@ main (void)
      (POSIX) compatibility; for instance, Cygwin32 defines __unix__ (but
      Cygwin64 does not, probably because providing both MS Windows API and
      POSIX API is not possible with a 64-bit ABI, since MS Windows is LLP64
-     and Unix is LP64). */
+     and Unix is LP64).
+     MPFR_WIN_THREAD_SAFE_DLL is directly set up from __GMP_LIBGMP_DLL;
+     that is why it is output here. */
   printf ("[tversion] WinDLL: __GMP_LIBGMP_DLL = "
 #if defined(__GMP_LIBGMP_DLL)
           MAKE_STR(__GMP_LIBGMP_DLL)
@@ -176,6 +192,11 @@ main (void)
           "undef"
 #endif
           "\n");
+
+  /********************* MPFR configuration parameters *********************/
+
+  /* The following code outputs configuration parameters, either set up
+     by the user or determined automatically (default values). */
 
   if (
 #ifdef MPFR_USE_THREAD_SAFE
@@ -240,6 +261,12 @@ main (void)
 #else
           "no"
 #endif
+          ", IEEE floats = "
+#if _MPFR_IEEE_FLOATS
+          "yes"
+#else
+          "no"
+#endif
           "\n");
 
   printf ("[tversion] gmp_printf: hhd = "
@@ -296,10 +323,53 @@ main (void)
   else
     printf ("[tversion] MPFR tuning parameters from %s\n", MPFR_TUNE_CASE);
 
-  if (strcmp (mpfr_get_patches (), "") != 0)
-    printf ("[tversion] MPFR patches: %s\n", mpfr_get_patches ());
+  /**************************** ABI information ****************************/
 
-  tests_start_mpfr ();
+  if (mp_bits_per_limb != GMP_NUMB_BITS)
+    {
+      printf ("ERROR! mp_bits_per_limb != GMP_NUMB_BITS (%ld vs %ld)\n",
+              (long) mp_bits_per_limb, (long) GMP_NUMB_BITS);
+      err = 1;
+    }
+
+  printf ("[tversion] GMP_NUMB_BITS = %ld, sizeof(mp_limb_t) = %ld\n",
+          (long) GMP_NUMB_BITS, (long) sizeof(mp_limb_t));
+
+  printf ("[tversion] _MPFR_PREC_FORMAT = %ld, sizeof(mpfr_prec_t) = %ld\n",
+          (long) _MPFR_PREC_FORMAT, (long) sizeof(mpfr_prec_t));
+
+  printf ("[tversion] _MPFR_EXP_FORMAT = %ld, sizeof(mpfr_exp_t) = %ld\n",
+          (long) _MPFR_EXP_FORMAT, (long) sizeof(mpfr_exp_t));
+
+  printf ("[tversion] sizeof(mpfr_t) = %ld, sizeof(mpfr_ptr) = %ld\n",
+          (long) sizeof(mpfr_t), (long) sizeof(mpfr_ptr));
+
+#define RANGE " range: [%" MPFR_EXP_FSPEC "d,%" MPFR_EXP_FSPEC "d]\n"
+
+  printf ("[tversion] Precision" RANGE,
+          (mpfr_eexp_t) MPFR_PREC_MIN, (mpfr_eexp_t) MPFR_PREC_MAX);
+
+  e = mpfr_get_emin_min ();
+  if (e != MPFR_EMIN_MIN)
+    {
+      printf ("ERROR! mpfr_get_emin_min != MPFR_EMIN_MIN (%ld vs %ld)\n",
+              (mpfr_eexp_t) e, (mpfr_eexp_t) MPFR_EMIN_MIN);
+      err = 1;
+    }
+
+  e = mpfr_get_emax_max ();
+  if (e != MPFR_EMAX_MAX)
+    {
+      printf ("ERROR! mpfr_get_emax_max != MPFR_EMAX_MAX (%ld vs %ld)\n",
+              (mpfr_eexp_t) e, (mpfr_eexp_t) MPFR_EMAX_MAX);
+      err = 1;
+    }
+
+  printf ("[tversion] Max exponent" RANGE,
+          (mpfr_eexp_t) MPFR_EMIN_MIN, (mpfr_eexp_t) MPFR_EMAX_MAX);
+
+  /************************** Runtime information **************************/
+
   if (locale != NULL)
     printf ("[tversion] Locale: %s\n", locale);
   /* The memory limit should not be changed for "make check".
@@ -309,6 +379,9 @@ main (void)
   if (tests_memory_limit != DEFAULT_MEMORY_LIMIT)
     printf ("[tversion] Warning! Memory limit changed to %" MPFR_EXP_FSPEC
             "u\n", (mpfr_ueexp_t) tests_memory_limit);
+
+  /*************************************************************************/
+
   tests_end_mpfr ();
 
   return err;

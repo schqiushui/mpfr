@@ -1,6 +1,6 @@
 /* tfprintf.c -- test file for mpfr_fprintf and mpfr_vfprintf
 
-Copyright 2008-2017 Free Software Foundation, Inc.
+Copyright 2008-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -404,7 +404,7 @@ main (int argc, char *argv[])
       /* If we failed to open this device, try with a dummy file */
       if (fout == NULL)
         {
-          fout = fopen ("mpfrtest.txt", "w");
+          fout = fopen ("tfprintf_out.txt", "w");
 
           if (fout == NULL)
             {

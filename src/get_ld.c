@@ -1,7 +1,7 @@
 /* mpfr_get_ld, mpfr_get_ld_2exp -- convert a multiple precision floating-point
                                     number to a machine long double
 
-Copyright 2002-2017 Free Software Foundation, Inc.
+Copyright 2002-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -125,6 +125,9 @@ mpfr_get_ld (mpfr_srcptr x, mpfr_rnd_t rnd_mode)
     {
       long double r; /* result */
       double s; /* part of result */
+      MPFR_SAVE_EXPO_DECL (expo);
+
+      MPFR_SAVE_EXPO_MARK (expo);
 
 #if defined(HAVE_LDOUBLE_MAYBE_DOUBLE_DOUBLE)
       if (MPFR_LDBL_MANT_DIG == 106)
@@ -227,6 +230,7 @@ mpfr_get_ld (mpfr_srcptr x, mpfr_rnd_t rnd_mode)
           if (sign < 0)
             r = -r;
         }
+      MPFR_SAVE_EXPO_FREE (expo);
       return r;
     }
 }

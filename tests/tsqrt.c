@@ -1,6 +1,6 @@
 /* Test file for mpfr_sqrt.
 
-Copyright 1999, 2001-2017 Free Software Foundation, Inc.
+Copyright 1999, 2001-2018 Free Software Foundation, Inc.
 Contributed by the AriC and Caramba projects, INRIA.
 
 This file is part of the GNU MPFR Library.
@@ -276,8 +276,7 @@ special (void)
   if (mpfr_cmp_ui (z, 0) < 0)
     {
       printf ("Error: square root of 1 gives ");
-      mpfr_print_binary(z);
-      putchar('\n');
+      mpfr_dump (z);
       exit (1);
     }
 
@@ -428,7 +427,7 @@ check_inexact (mpfr_prec_t p)
   mpfr_init2 (y, p);
   mpfr_init2 (z, 2*p);
   mpfr_urandomb (x, RANDS);
-  rnd = RND_RAND ();
+  rnd = RND_RAND_NO_RNDF ();
   inexact = test_sqrt (y, x, rnd);
   if (mpfr_mul (z, y, y, rnd)) /* exact since prec(z) = 2*prec(y) */
     {
@@ -441,12 +440,12 @@ check_inexact (mpfr_prec_t p)
       ((inexact > 0) && (sign <= 0)) ||
       ((inexact < 0) && (sign >= 0)))
     {
-      printf ("Error: wrong inexact flag, expected %d, got %d\n",
-              sign, inexact);
+      printf ("Error with rnd=%s: wrong ternary value, expected %d, got %d\n",
+              mpfr_print_rnd_mode (rnd), sign, inexact);
       printf ("x=");
-      mpfr_print_binary (x);
-      printf (" rnd=%s\n", mpfr_print_rnd_mode (rnd));
-      printf ("y="); mpfr_dump (y);
+      mpfr_dump (x);
+      printf ("y=");
+      mpfr_dump (y);
       exit (1);
     }
   mpfr_clear (x);
@@ -616,6 +615,45 @@ bug20160908 (void)
   mpfr_clear (u);
 }
 
+static void
+testall_rndf (mpfr_prec_t pmax)
+{
+  mpfr_t a, b, d;
+  mpfr_prec_t pa, pb;
+
+  for (pa = MPFR_PREC_MIN; pa <= pmax; pa++)
+    {
+      mpfr_init2 (a, pa);
+      mpfr_init2 (d, pa);
+      for (pb = MPFR_PREC_MIN; pb <= pmax; pb++)
+        {
+          mpfr_init2 (b, pb);
+          mpfr_set_ui (b, 1, MPFR_RNDN);
+          while (mpfr_cmp_ui (b, 4) < 0)
+            {
+              mpfr_sqrt (a, b, MPFR_RNDF);
+              mpfr_sqrt (d, b, MPFR_RNDD);
+              if (!mpfr_equal_p (a, d))
+                {
+                  mpfr_sqrt (d, b, MPFR_RNDU);
+                  if (!mpfr_equal_p (a, d))
+                    {
+                      printf ("Error: mpfr_sqrt(a,b,RNDF) does not "
+                              "match RNDD/RNDU\n");
+                      printf ("b="); mpfr_dump (b);
+                      printf ("a="); mpfr_dump (a);
+                      exit (1);
+                    }
+                }
+              mpfr_nextabove (b);
+            }
+          mpfr_clear (b);
+        }
+      mpfr_clear (a);
+      mpfr_clear (d);
+    }
+}
+
 /* test the case prec = GMP_NUMB_BITS */
 static void
 test_sqrt1n (void)
@@ -663,6 +701,7 @@ main (void)
 
   tests_start_mpfr ();
 
+  testall_rndf (16);
   for (p = MPFR_PREC_MIN; p <= 128; p++)
     {
       test_property1 (p, MPFR_RNDN, 0);
